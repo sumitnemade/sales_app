@@ -1,22 +1,24 @@
-import 'package:sales_app/models/entry.dart';
+import 'dish.dart';
 
 class MonthlySales {
   int? totalQuantity;
   int? totalPrice;
   double? popularItemAvg;
-  List<Entry>? allEntries;
   String? popularItem;
   String? popularRevenueItem;
+  int? allEntries;
   int? minQuantity;
   int? maxQuantity;
+  Map<String, Dish>? dishes;
 
   MonthlySales({
     this.totalQuantity,
     this.totalPrice,
-    this.allEntries,
     this.popularItemAvg,
     this.popularItem,
+    this.dishes,
     this.maxQuantity,
+    this.allEntries,
     this.minQuantity,
     this.popularRevenueItem,
   });
@@ -30,9 +32,7 @@ class MonthlySales {
       totalPrice: json['totalPrice'],
       popularItemAvg: json['popularItemAvg'],
       minQuantity: json['minQuantity'],
-      allEntries: json['allEntries'] != null
-          ? (json['allEntries'] as List).map((i) => Entry.fromJson(i)).toList()
-          : null,
+      allEntries: json['allEntries'],
     );
   }
 
@@ -46,9 +46,8 @@ class MonthlySales {
     data['totalPrice'] = this.totalPrice;
     data['popularItemAvg'] = this.popularItemAvg;
     data['minQuantity'] = this.minQuantity;
-    if (this.allEntries != null) {
-      data['allEntries'] = this.allEntries!.map((v) => v.toJson()).toList();
-    }
+    data['allEntries'] = this.allEntries;
+
     return data;
   }
 }

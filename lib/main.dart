@@ -1,3 +1,4 @@
+import 'dart:collection';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
@@ -6,7 +7,6 @@ import 'package:flutter/services.dart';
 import 'models/dish.dart';
 import 'models/entry.dart';
 import 'models/monthly_sale.dart';
-import 'models/total_sale.dart';
 
 void main() {
   runApp(MyApp());
@@ -34,8 +34,11 @@ class MyHomePage extends StatefulWidget {
 }
 
 class _MyHomePageState extends State<MyHomePage> {
-  TotalSales _totalSales = TotalSales();
   Map<String, MonthlySales> monthlyReport = Map();
+  int _totalPrice = 0;
+  int _totalQuantity = 0;
+
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -44,17 +47,18 @@ class _MyHomePageState extends State<MyHomePage> {
   }
 
   void _loadEntries() async {
-    List<Entry> entries = [];
-    int j = 0;
-    int totalPrice = 0;
-    int totalQuantity = 0;
+    setState(() {
+      _isLoading = true;
+    });
+    int count = 0;
 
     await rootBundle.loadString('assets/sales-data.txt').then((q) {
-      for (String i in LineSplitter().convert(q)) {
-        if (j == 0) {
-          j++;
-        } else {
-          var splitted = i.split(",");
+      List<String> rows = LineSplitter().convert(q);
+
+      for (int i = 0; i < rows.length; i++) {
+        count++;
+        if (count != 1) {
+          var splitted = rows[i].split(",");
 
           Entry entry = Entry();
           entry.date = DateTime.parse(splitted[0].toString());
@@ -62,90 +66,97 @@ class _MyHomePageState extends State<MyHomePage> {
           entry.unitPrice = int.parse(splitted[2].toString());
           entry.quantity = int.parse(splitted[3].toString());
           entry.totalPrice = int.parse(splitted[4].toString());
-          entries.add(entry);
 
-          totalPrice = totalPrice + int.parse(splitted[4].toString());
-          totalQuantity = totalPrice + int.parse(splitted[3].toString());
+          _totalPrice = _totalPrice + int.parse(splitted[4].toString());
+          _totalQuantity = _totalQuantity + int.parse(splitted[3].toString());
+          String key = "${entry.date!.month}-${entry.date!.year}";
+
+          if (!monthlyReport.containsKey(key)) {
+            MonthlySales mSales = MonthlySales();
+
+            mSales.dishes = Map();
+            mSales.allEntries = 1;
+            mSales.totalQuantity = entry.quantity;
+            mSales.totalPrice = entry.totalPrice;
+            mSales.minQuantity = entry.quantity;
+            mSales.minQuantity = entry.quantity;
+            Dish dd = Dish();
+            dd.sku = entry.sku!;
+            dd.totalOrder = 1;
+            dd.quantity = entry.quantity!;
+            dd.maxQuantity = entry.quantity!;
+            dd.minQuantity = entry.quantity!;
+            dd.totalPrice = entry.totalPrice!;
+            mSales.dishes![entry.sku!] = dd;
+            monthlyReport[key] = mSales;
+          } else {
+            monthlyReport[key]!.allEntries =
+                monthlyReport[key]!.allEntries! + 1;
+            monthlyReport[key]!.totalQuantity =
+                monthlyReport[key]!.totalQuantity! + entry.quantity!;
+            monthlyReport[key]!.totalPrice =
+                monthlyReport[key]!.totalPrice! + entry.totalPrice!;
+            if (!monthlyReport[key]!.dishes!.containsKey(entry.sku)) {
+              Dish dd = Dish();
+              dd.sku = entry.sku!;
+              dd.totalOrder = 1;
+              dd.quantity = entry.quantity!;
+              dd.maxQuantity = entry.quantity!;
+              dd.minQuantity = entry.quantity!;
+              dd.totalPrice = entry.totalPrice!;
+              monthlyReport[key]!.dishes![entry.sku!] = dd;
+            } else {
+              if (monthlyReport[key]!.dishes![entry.sku!]!.maxQuantity! <
+                  entry.quantity!)
+                monthlyReport[key]!.dishes![entry.sku!]!.maxQuantity =
+                    entry.quantity;
+
+              if (monthlyReport[key]!.dishes![entry.sku!]!.minQuantity! >
+                  entry.quantity!)
+                monthlyReport[key]!.dishes![entry.sku!]!.minQuantity =
+                    entry.quantity!;
+
+              monthlyReport[key]!.dishes![entry.sku!]!.totalPrice =
+                  monthlyReport[key]!.dishes![entry.sku!]!.totalPrice! +
+                      entry.totalPrice!;
+
+              monthlyReport[key]!.dishes![entry.sku!]!.totalOrder =
+                  monthlyReport[key]!.dishes![entry.sku!]!.totalOrder! + 1;
+
+              int qnt = monthlyReport[key]!.dishes![entry.sku!]!.quantity! +
+                  entry.quantity!;
+              monthlyReport[key]!.dishes![entry.sku!]!.quantity = qnt;
+            }
+          }
         }
       }
     });
 
-    _totalSales.allEntries = entries;
-    _totalSales.totalPrice = totalPrice;
-    _totalSales.totalQuantity = totalQuantity;
+    monthlyReport.forEach((key, value) {
+      var sortedKeys = value.dishes!.keys.toList(growable: false)
+        ..sort((k1, k2) => value.dishes![k1]!.quantity!
+            .compareTo(value.dishes![k2]!.quantity!));
+      LinkedHashMap sortedMap = new LinkedHashMap.fromIterable(sortedKeys,
+          key: (k) => k, value: (k) => value.dishes![k]);
 
-    List<String> _months = [];
+      value.popularItem = sortedMap.entries.last.value.sku;
+      value.maxQuantity = sortedMap.entries.last.value.maxQuantity;
+      value.minQuantity = sortedMap.entries.last.value.minQuantity;
+      value.popularItemAvg =
+          (value.allEntries! / sortedMap.entries.last.value.totalOrder!);
 
-    entries.forEach((element) {
-      if (!_months.contains("${element.date!.month}-${element.date!.year}"))
-        _months.add("${element.date!.month}-${element.date!.year}");
+      var sortedKeyss = value.dishes!.keys.toList(growable: false)
+        ..sort((k1, k2) => value.dishes![k1]!.totalPrice!
+            .compareTo(value.dishes![k2]!.totalPrice!));
+      LinkedHashMap sortedMaps = new LinkedHashMap.fromIterable(sortedKeyss,
+          key: (k) => k, value: (k) => value.dishes![k]);
+
+      value.popularRevenueItem = sortedMaps.entries.last.value.sku;
     });
 
-    _months.forEach((element) {
-      MonthlySales mSales = MonthlySales();
-      mSales.allEntries = entries
-          .where((entry) =>
-              entry.date!.month.toString() == element.toString().split("-")[0])
-          .toList();
-      int totalPriceMonth = 0;
-      int totalQuantityMonth = 0;
-      List<Dish?>? _dishes = [];
-      mSales.allEntries!.forEach((ele) {
-        totalPriceMonth = totalPriceMonth + ele.totalPrice!;
-        totalQuantityMonth = totalQuantityMonth + ele.quantity!;
-        Dish? did = _dishes.length > 0
-            ? _dishes.firstWhere((d) => d?.sku == ele.sku, orElse: () => null)
-            : null;
-
-        if (did == null || did.sku == null) {
-          Dish dd = Dish();
-          dd.sku = ele.sku!;
-          dd.totalOrder = mSales.allEntries!
-              .where((ss) => ss.sku == dd.sku)
-              .toList()
-              .length;
-          dd.quantity = ele.quantity!;
-          dd.maxQuantity = ele.quantity!;
-          dd.minQuantity = ele.quantity!;
-          dd.totalPrice = ele.totalPrice!;
-          _dishes.add(dd);
-        } else {
-          int ind = _dishes.indexWhere(
-            (ind) => ind!.sku == did.sku,
-          );
-
-          if (did != null && did.sku != null) {
-            if (did.maxQuantity! < ele.quantity!)
-              did.maxQuantity = ele.quantity!;
-
-            if (did.minQuantity! > ele.quantity!)
-              did.minQuantity = ele.quantity!;
-
-            did.totalPrice = did.totalPrice! + ele.totalPrice!;
-            did.quantity = did.quantity! + ele.quantity!;
-            _dishes[ind] = did;
-          }
-        }
-      });
-
-      _dishes.sort((a, b) => a!.quantity!.compareTo(b!.quantity!));
-
-      mSales.totalPrice = totalPriceMonth;
-      mSales.totalQuantity = totalQuantityMonth;
-      mSales.popularItem = _dishes.last!.sku;
-      mSales.maxQuantity = _dishes.last!.maxQuantity;
-      mSales.minQuantity = _dishes.last!.minQuantity;
-      mSales.popularItemAvg =
-          (mSales.allEntries!.length / _dishes.last!.totalOrder!);
-
-      _dishes.sort((a, b) => a!.totalPrice!.compareTo(b!.totalPrice!));
-
-      mSales.popularRevenueItem = _dishes.last!.sku;
-
-      monthlyReport[element] = mSales;
+    setState(() {
+      _isLoading = false;
     });
-
-    setState(() {});
   }
 
   String _getMonth(String m) {
@@ -201,54 +212,60 @@ class _MyHomePageState extends State<MyHomePage> {
       appBar: AppBar(
         title: Text("Sales App"),
       ),
-      body: Container(
-        padding: EdgeInsets.symmetric(horizontal: 15, vertical: 15),
-        child: ListView(
-          children: <Widget>[
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _mainTile('Total quantities', '${_totalSales.totalQuantity}'),
-                _mainTile('Total price', 'Rs.${_totalSales.totalPrice}'),
+      body: Stack(
+        children: [
+          Container(
+            padding: EdgeInsets.symmetric(horizontal: 15, vertical: 15),
+            child: ListView(
+              children: <Widget>[
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _mainTile('Total quantities', '$_totalQuantity'),
+                    _mainTile('Total price', 'Rs.$_totalPrice'),
+                  ],
+                ),
+                SizedBox(
+                  height: 20,
+                ),
+                if (monthlyReport.isNotEmpty)
+                  ListView.builder(
+                    shrinkWrap: true,
+                    physics: NeverScrollableScrollPhysics(),
+                    itemCount: monthlyReport.length,
+                    padding: EdgeInsets.symmetric(vertical: 10),
+                    itemBuilder: (context, i) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          _textTile("Month: ",
+                              '${_getMonth(monthlyReport.keys.elementAt(i).split("-")[0])} - ${monthlyReport.keys.elementAt(i).split("-")[1]}'),
+                          _textTile("Total Price: ",
+                              'Rs.${monthlyReport.values.elementAt(i).totalPrice}'),
+                          _textTile("Total Quantity: ",
+                              '${monthlyReport.values.elementAt(i).totalQuantity}'),
+                          _textTile("Most Revenue generated by: ",
+                              '${monthlyReport.values.elementAt(i).popularRevenueItem}'),
+                          _textTile("Popular item: ",
+                              '${monthlyReport.values.elementAt(i).popularItem}'),
+                          _textTile("Average orders: ",
+                              '${monthlyReport.values.elementAt(i).popularItemAvg?.toStringAsFixed(2) ?? 0} '),
+                          _textTile("Minimum quantity: ",
+                              '${monthlyReport.values.elementAt(i).minQuantity}'),
+                          _textTile("Max quantity: ",
+                              '${monthlyReport.values.elementAt(i).maxQuantity}'),
+                          SizedBox(
+                            height: 20,
+                          ),
+                        ],
+                      );
+                    },
+                  )
               ],
             ),
-            SizedBox(
-              height: 20,
-            ),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: NeverScrollableScrollPhysics(),
-              itemCount: monthlyReport.length,
-              padding: EdgeInsets.symmetric(vertical: 10),
-              itemBuilder: (context, i) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _textTile("Month: ",
-                        '${_getMonth(monthlyReport.keys.elementAt(i).split("-")[0])} - ${monthlyReport.keys.elementAt(i).split("-")[1]}'),
-                    _textTile("Total Price: ",
-                        'Rs.${monthlyReport.values.elementAt(i).totalPrice}'),
-                    _textTile("Total Quantity: ",
-                        '${monthlyReport.values.elementAt(i).totalQuantity}'),
-                    _textTile("Most Revenue generated by: ",
-                        '${monthlyReport.values.elementAt(i).popularRevenueItem}'),
-                    _textTile("Popular item: ",
-                        '${monthlyReport.values.elementAt(i).popularItem}'),
-                    _textTile("Average orders: ",
-                        '${monthlyReport.values.elementAt(i).popularItemAvg!.toStringAsFixed(2)}'),
-                    _textTile("Minimum quantity: ",
-                        '${monthlyReport.values.elementAt(i).minQuantity}'),
-                    _textTile("Max quantity: ",
-                        '${monthlyReport.values.elementAt(i).maxQuantity}'),
-                    SizedBox(
-                      height: 20,
-                    ),
-                  ],
-                );
-              },
-            )
-          ],
-        ),
+          ),
+          if (_isLoading) Center(child: CircularProgressIndicator())
+        ],
       ),
       // This trailing comma makes auto-formatting nicer for build methods.
     );
