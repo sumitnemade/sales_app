@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'models/dish.dart';
-import 'models/entry.dart';
 import 'models/monthly_sale.dart';
 
 void main() {
@@ -50,82 +49,73 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _isLoading = true;
     });
-    int count = 0;
 
     await rootBundle.loadString('assets/sales-data.txt').then((q) {
       List<String> rows = LineSplitter().convert(q);
 
       for (int i = 0; i < rows.length; i++) {
-        count++;
-        if (count != 1) {
+        if (i != 0) {
           var splitted = rows[i].split(",");
 
-          Entry entry = Entry();
-          entry.date = DateTime.parse(splitted[0].toString());
-          entry.sku = splitted[1].toString();
-          entry.unitPrice = int.parse(splitted[2].toString());
-          entry.quantity = int.parse(splitted[3].toString());
-          entry.totalPrice = int.parse(splitted[4].toString());
+          DateTime date = DateTime.parse(splitted[0].toString());
+          String sku = splitted[1].toString();
+          int quantity = int.parse(splitted[3].toString());
+          int totalPrice = int.parse(splitted[4].toString());
 
           _totalPrice = _totalPrice + int.parse(splitted[4].toString());
           _totalQuantity = _totalQuantity + int.parse(splitted[3].toString());
-          String key = "${entry.date!.month}-${entry.date!.year}";
+
+          String key = "${date.month}-${date.year}";
 
           if (!monthlyReport.containsKey(key)) {
             MonthlySales mSales = MonthlySales();
-
             mSales.dishes = Map();
             mSales.allEntries = 1;
-            mSales.totalQuantity = entry.quantity;
-            mSales.totalPrice = entry.totalPrice;
-            mSales.minQuantity = entry.quantity;
-            mSales.minQuantity = entry.quantity;
+            mSales.totalQuantity = quantity;
+            mSales.totalPrice = totalPrice;
+            mSales.minQuantity = quantity;
+            mSales.minQuantity = quantity;
+
             Dish dd = Dish();
-            dd.sku = entry.sku!;
+            dd.sku = sku;
             dd.totalOrder = 1;
-            dd.quantity = entry.quantity!;
-            dd.maxQuantity = entry.quantity!;
-            dd.minQuantity = entry.quantity!;
-            dd.totalPrice = entry.totalPrice!;
-            mSales.dishes![entry.sku!] = dd;
+            dd.quantity = quantity;
+            dd.maxQuantity = quantity;
+            dd.minQuantity = quantity;
+            dd.totalPrice = totalPrice;
+            mSales.dishes![sku] = dd;
             monthlyReport[key] = mSales;
           } else {
             monthlyReport[key]!.allEntries =
                 monthlyReport[key]!.allEntries! + 1;
             monthlyReport[key]!.totalQuantity =
-                monthlyReport[key]!.totalQuantity! + entry.quantity!;
+                monthlyReport[key]!.totalQuantity! + quantity;
             monthlyReport[key]!.totalPrice =
-                monthlyReport[key]!.totalPrice! + entry.totalPrice!;
-            if (!monthlyReport[key]!.dishes!.containsKey(entry.sku)) {
+                monthlyReport[key]!.totalPrice! + totalPrice;
+            if (!monthlyReport[key]!.dishes!.containsKey(sku)) {
               Dish dd = Dish();
-              dd.sku = entry.sku!;
+              dd.sku = sku;
               dd.totalOrder = 1;
-              dd.quantity = entry.quantity!;
-              dd.maxQuantity = entry.quantity!;
-              dd.minQuantity = entry.quantity!;
-              dd.totalPrice = entry.totalPrice!;
-              monthlyReport[key]!.dishes![entry.sku!] = dd;
+              dd.quantity = quantity;
+              dd.maxQuantity = quantity;
+              dd.minQuantity = quantity;
+              dd.totalPrice = totalPrice;
+              monthlyReport[key]!.dishes![sku] = dd;
             } else {
-              if (monthlyReport[key]!.dishes![entry.sku!]!.maxQuantity! <
-                  entry.quantity!)
-                monthlyReport[key]!.dishes![entry.sku!]!.maxQuantity =
-                    entry.quantity;
+              if (monthlyReport[key]!.dishes![sku]!.maxQuantity! < quantity)
+                monthlyReport[key]!.dishes![sku]!.maxQuantity = quantity;
 
-              if (monthlyReport[key]!.dishes![entry.sku!]!.minQuantity! >
-                  entry.quantity!)
-                monthlyReport[key]!.dishes![entry.sku!]!.minQuantity =
-                    entry.quantity!;
+              if (monthlyReport[key]!.dishes![sku]!.minQuantity! > quantity)
+                monthlyReport[key]!.dishes![sku]!.minQuantity = quantity;
 
-              monthlyReport[key]!.dishes![entry.sku!]!.totalPrice =
-                  monthlyReport[key]!.dishes![entry.sku!]!.totalPrice! +
-                      entry.totalPrice!;
+              monthlyReport[key]!.dishes![sku]!.totalPrice =
+                  monthlyReport[key]!.dishes![sku]!.totalPrice! + totalPrice;
 
-              monthlyReport[key]!.dishes![entry.sku!]!.totalOrder =
-                  monthlyReport[key]!.dishes![entry.sku!]!.totalOrder! + 1;
+              monthlyReport[key]!.dishes![sku]!.totalOrder =
+                  monthlyReport[key]!.dishes![sku]!.totalOrder! + 1;
 
-              int qnt = monthlyReport[key]!.dishes![entry.sku!]!.quantity! +
-                  entry.quantity!;
-              monthlyReport[key]!.dishes![entry.sku!]!.quantity = qnt;
+              int qnt = monthlyReport[key]!.dishes![sku]!.quantity! + quantity;
+              monthlyReport[key]!.dishes![sku]!.quantity = qnt;
             }
           }
         }
