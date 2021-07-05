@@ -49,21 +49,32 @@ class _MyHomePageState extends State<MyHomePage> {
     setState(() {
       _isLoading = true;
     });
+    int? dateIndex, skuIndex, totalPriceIndex, quantityIndex, priceIndex;
 
-    await rootBundle.loadString('assets/sales-data.txt').then((q) {
+    await rootBundle.loadString('assets/data.txt').then((q) {
       List<String> rows = LineSplitter().convert(q);
 
       for (int i = 0; i < rows.length; i++) {
-        if (i != 0) {
-          var splitted = rows[i].split(",");
+        var splitted = rows[i].split(",");
+        if (i == 0) {
+          dateIndex =
+              splitted.indexWhere((element) => element.toLowerCase() == "date");
+          skuIndex =
+              splitted.indexWhere((element) => element.toLowerCase() == "sku");
+          totalPriceIndex = splitted
+              .indexWhere((element) => element.toLowerCase() == "total price");
+          quantityIndex = splitted
+              .indexWhere((element) => element.toLowerCase() == "quantity");
+          priceIndex = splitted
+              .indexWhere((element) => element.toLowerCase() == "unit price");
+        } else {
+          DateTime date = DateTime.parse(splitted[dateIndex!].toString());
+          String sku = splitted[skuIndex!].toString();
+          int quantity = int.parse(splitted[quantityIndex!].toString());
+          int totalPrice = int.parse(splitted[totalPriceIndex!].toString());
 
-          DateTime date = DateTime.parse(splitted[0].toString());
-          String sku = splitted[1].toString();
-          int quantity = int.parse(splitted[3].toString());
-          int totalPrice = int.parse(splitted[4].toString());
-
-          _totalPrice = _totalPrice + int.parse(splitted[4].toString());
-          _totalQuantity = _totalQuantity + int.parse(splitted[3].toString());
+          _totalPrice = _totalPrice + totalPrice;
+          _totalQuantity = _totalQuantity + quantity;
 
           String key = "${date.month}-${date.year}";
 

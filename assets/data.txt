@@ -1,0 +1,5 @@
+Date,Unit Price,Quantity,Total Price,SKU
+2019-01-01,180,5,900,Death by Chocolate
+2019-01-01,150,1,150,Cake Fudge
+2019-01-01,150,1,150,Cake Fudge
+2019-01-01,150,3,450,Cake Fudge
